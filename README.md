@@ -6,12 +6,26 @@ is the THIRD wave-1 blueprint batch: management/professional work is
 cognitive, **no robotics gate** — eligible for actor implementation
 now.
 
-**Maturity: `:blueprint`** — blueprint only; **no actor implementation
-yet**, and none is claimed. The implemented actor will follow the
-fleet-standard pattern (advisor-LLM sealed behind the independent
-`:supply-distribution-management-governor` governor, human approval workflow, append-only audit ledger);
-decisions with external or financial effect are always
-:external-send / escalated, never auto-committed.
+**Maturity: `:implemented`** — SupplyDistributionManagersAdvisor ⊣
+SupplyDistributionManagersGovernor as a langgraph StateGraph
+(`intake → advise → govern → decide → commit/hold`, human-approval
+interrupt), modeled on cloud-itonami-isco-4311's bookkeeping actor.
+13 tests / 27 assertions green.
+
+The logistics HARD invariants — arithmetic and set membership, not a
+shipping preference:
+
+1. **Stock arithmetic** — the proposed allocation quantity must not
+   exceed the sku's registered on-hand stock (you cannot allocate what
+   does not exist).
+2. **Carrier membership** — the proposed carrier must be a member of
+   the sku's registered approved-carriers set (no invented or
+   unapproved carrier) — carrier approval is traceability.
+
+Also HARD: unregistered/foreign sku, unregistered organization,
+non-`:propose` effect. Escalations (always human sign-off):
+`:approve-cross-border-shipment` (customs/regulatory exposure), low
+confidence (< 0.6).
 
 AGPL-3.0-or-later, forkable by any qualified operator. Part of the
 [cloud-itonami](https://itonami.cloud) open business fleet.
