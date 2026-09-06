@@ -21,6 +21,7 @@
             [langgraph.checkpoint :as cp]
             [supplydist.advisor :as advisor]
             [supplydist.governor :as governor]
+            [supplydist.ledger :as ledger]
             [supplydist.store :as store]))
 
 (defn build-graph
@@ -59,18 +60,36 @@
                                      :else :commit)}))
       (g/add-node :request-approval (fn [s] s))
       (g/add-node :commit
-                   (fn [{:keys [request proposal]}]
+                   ;; `:disposition` is the only thing by which this
+                   ;; node can tell how it was reached: :request-approval
+                   ;; means the run interrupted and a human resumed it.
+                   ;; Measured on 4c4f48f, both paths wrote the same
+                   ;; `{:disposition :commit :record ...}`, so the
+                   ;; ledger could not show that
+                   ;; :approve-cross-border-shipment — customs and
+                   ;; regulatory exposure — had received the sign-off
+                   ;; the README says it always requires.
+                   (fn [{:keys [request proposal disposition]}]
                      (let [record {:client-id (:client-id request)
                                     :op (:op proposal)
                                     :sku-id (:sku-id proposal)
-                                    :payload proposal}]
+                                    :payload proposal}
+                           auth (if (= :request-approval disposition)
+                                  :human-sign-off
+                                  :governor-clear)]
                        (store/commit-record! store record)
-                       (store/append-ledger! store {:disposition :commit :record record})
+                       (store/append-ledger!
+                        store (ledger/entry {:disposition :commit
+                                             :authorisation auth
+                                             :record record}))
                        {:record record
-                        :audit [{:node :commit :record record}]})))
+                        :audit [{:node :commit :record record :authorisation auth}]})))
       (g/add-node :hold
                    (fn [{:keys [verdict]}]
-                     (store/append-ledger! store {:disposition :hold :verdict verdict})
+                     (store/append-ledger!
+                      store (ledger/entry {:disposition :hold
+                                           :authorisation :governor-hold
+                                           :verdict verdict}))
                      {:audit [{:node :hold :verdict verdict}]}))
       (g/set-entry-point :intake)
       (g/add-edge :intake :advise)

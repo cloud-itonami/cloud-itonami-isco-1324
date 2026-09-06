@@ -10,7 +10,7 @@ now.
 SupplyDistributionManagersGovernor as a langgraph StateGraph
 (`intake → advise → govern → decide → commit/hold`, human-approval
 interrupt), modeled on cloud-itonami-isco-4311's bookkeeping actor.
-13 tests / 27 assertions green.
+23 tests / 51 assertions green.
 
 The logistics HARD invariants — arithmetic and set membership, not a
 shipping preference:
@@ -26,6 +26,18 @@ Also HARD: unregistered/foreign sku, unregistered organization,
 non-`:propose` effect. Escalations (always human sign-off):
 `:approve-cross-border-shipment` (customs/regulatory exposure), low
 confidence (< 0.6).
+
+Every ledger entry names its `:authorisation` —
+`:governor-clear` (the governor cleared it, no human involved),
+`:human-sign-off` (the run interrupted at `:request-approval` and a
+human resumed the thread; resuming IS the approval), or
+`:governor-hold` (refused, nothing committed). `supplydist.ledger/entry`
+refuses to build an entry that does not name one, and a `:hold` must
+carry the verdict that caused it — a refusal with no recorded reason is
+not an audit record. Measured before this existed, a governor-cleared
+allocation and a human-resumed cross-border shipment wrote entries of
+identical shape, so the ledger could not show that the customs-exposed
+write had received the sign-off this README requires of it.
 
 AGPL-3.0-or-later, forkable by any qualified operator. Part of the
 [cloud-itonami](https://itonami.cloud) open business fleet.
